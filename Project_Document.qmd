@@ -3,3 +3,120 @@ title: "Project Document"
 format: pdf
 editor: visual
 ---
+
+# Part I: Exploratory Data Analysis
+
+\newpage
+
+## About the Data
+
+Our data was obtained via UCI's Machine Learning Repository. The data is a multivariate set designed to explore student performance tied to various predictors. The data is split into two sets: Mathematics (student-mat.csv) and Portuguese (student-por.csv). These are the two subjects where records of the students performance (our outcome *y*) is recorded. Predictor variables include a range of demographic, social, health, and school related attributes.
+
+The data was utilized by a paper published in 2008 titled ["Using data mining to predict secondary school performance"](https://www.semanticscholar.org/paper/Using-data-mining-to-predict-secondary-school-Cortez-Silva/61d468d5254730bbecf822c6b60d7d6595d9889c). The study's goal was to use BI/DM techniques to build a model that accurately predicted student performance given predictor variables that provided the best accuracy. Below, we will conduct an EDA exploring and cleaning this data set prior to conducting a replication of their study while critiquing their process and adding/removing anything we deem necessary to result in the best models for our given data and prior proposed research goal.
+
+### Loading our Libraries
+
+```{r}
+library(tidyverse)
+```
+
+### Loading our Data
+
+```{r}
+# loading in both of our data sets, we will title them by their 
+# subject
+math <- read.csv("student-mat.csv", sep =  ";")
+portuguese <- read.csv("student-por.csv", sep = ";") # our data was seperated by semi colons 
+# instead of the traditional comma
+```
+
+\newpage
+
+## Understanding the Data Structure
+
+Prior to inspecting and cleaning our data, it is important we fully encapsulate what each column, row, and value mean.
+
+```{r}
+head(math)
+head(portuguese)
+```
+
+Both of our data sets are structured the same with the same column and row variables as well as structured values. This will help make implementing any cleaning and modeling simpler.
+
+### Variables & Values
+
+Referring back to the original paper, there are 33 columns of interest. Those variables are listed below alongside their values, with explanation and clarification as needed, below:
+
+**For a visual example, I have printed a random row to show how the values are presented as they are explained below**
+
+```{r}
+math[3, ]
+```
+
+`school` - Either `GP` (Gabriel Pereira) or `MS` (Mousinho da Silveira) of which school a student attended.
+
+`sex` - Either `F` (female) or `M` (male) regarding a students sex.
+
+`age` - Numeric value of a students age from 15 - 22.
+
+`address` - Either `U` (urban) or `R` (rural) regarding a students home address.
+
+`famsize` -
+
+`Pstatus` -
+
+`Medu` -
+
+`Fedu` -
+
+`Mjob` -
+
+`Fjob` -
+
+`reason` -
+
+`guardian` -
+
+`traveltime` -
+
+`studytime` -
+
+`failures` -
+
+`schoolsup` -
+
+`famsup` -
+
+`paid` -
+
+`activities` -
+
+`nursery` -
+
+`higher` -
+
+`internet` -
+
+`romantic` -
+
+`famrel` -
+
+`freetime` -
+
+`goout` -
+
+`Dalc` -
+
+`Walc` -
+
+`health` -
+
+`absences` -
+
+`G1` -
+
+`G2` -
+
+`G3` -
+
+### Classes & Values
