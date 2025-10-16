@@ -129,28 +129,109 @@ Given the review of our variables and their values, we should expect (was gonna 
 
 ### Cleaning Up
 
+```{r}
+sum(is.na(math))
+sum(is.na(portuguese))
+```
+
+The original data from the survey was processed and certain variables were excluded by the author of the paper due to lack of discriminative value. To verify that our data sets are clean, we check to see if there are any missing values.
+
+Our general approach to this project involves replicating some of the models used in the paper. The paper would predict student success using the G3 score, in one of three forums: binary classification, classification with five levels, and regression on the 0-20 scale. To ease the replication process we will create two new columns to represent the forum we want our output to be in:
+
+```{r}
+math |> 
+  mutate(five_level=case_when(
+    G3 > 15 ~ "I",
+    G3 >= 14 ~ "II",
+    G3 >=12 ~ "III",
+    G3 >=10  ~ "IV",
+    G3 < 10 ~ "V"
+  )) |> 
+    mutate(pass_fail=case_when(
+      G3>=10 ~ "Pass",
+      G3<10 ~ "Fail"
+    )) -> math2
+
+
+portuguese |> 
+  mutate(five_level=case_when(
+    G3 > 15 ~ "I",
+    G3 >= 14 ~ "II",
+    G3 >=12 ~ "III",
+    G3 >=10  ~ "IV",
+    G3 < 10 ~ "V"
+  )) |> 
+    mutate(pass_fail=case_when(
+      G3>=10 ~ "Pass",
+      G3<10 ~ "Fail"
+    )) -> portuguese2
+
+math2$five_level<-factor(math2$five_level)
+portuguese2$five_level<-factor(portuguese2$five_level)
+```
+
 anything extra you may want to add or clean or change
 
-## Correlations & Distribution 
+## Correlations & Distribution
 
 ### Means & Distributions
 
 summaries, correlations, plots, anything prior to statistical analysis
 
+```{r}
+library(ggplot2)
+ggplot(data=math2, aes(x=five_level))+
+  geom_bar()
+ggplot(data=portuguese2, aes(x=five_level))+
+  geom_bar()
+ggplot(data=portuguese2, aes(x=pass_fail))+
+  geom_bar()
+ggplot(data=math2, aes(x=pass_fail))+
+  geom_bar()
+```
+
 ### Correlations & Plots
 
 etc
+
+```{r}
+ggplot(data=math2, aes(x=G3, y=G2))+
+  geom_point()+
+  labs(title="Math final scores with G2 scores")
+```
 
 ## Statistical Analysis
 
 ### Review of Plan to fit Models
 
-talk about models, which they used in the paper, hence why we will run certain statistical analysis
+Our general approach to this project will be to recreate many of the models created in the [paper](https://repositorium.uminho.pt/server/api/core/bitstreams/991a0e2b-249d-466d-afef-937d975ff7fc/content) connected with this data set. In the paper, the classification/regression methods tried to predict G3 (passing/failing Portuguese and Math) in 3 forms:
+
+-   Binary (Pass/Fail)
+
+-   5-level Classification
+
+-   Regression (as is current G3 column, scale 0-20)
+
+The data was then modeled using 4 data mining models:
+
+-   Neural Networks
+
+-   Support Vector Machines
+
+-   Decision Trees
+
+-   Random Forest
+
+These 4 DMs were compared against a baseline naive predictor. Each model was either measured by Root Mean Squared or Percentage of Correct Classification. Additionally it was noted that 20 runs of 10-fold cross validation were applied to each configuration.
+
+Each model was run with each of 3 input setups. The setups included (A), all variables minus G2 (B), or all variables minus G2 and G1 (C). G1 and G2 are the first and second period grades, thus they are very effective at predicting the final grade, G3.
 
 ### Running Statistical Analysis to Properly Fit Models
 
 statistical analysis necessary to conduct prior to modeling
 
-## Modeling Procedures 
+## Modeling Procedures
 
-talk about models in paper, models we will replicate, how, and why, etc
+In order to accurately reproduce some of these models, we will prioritize replicating the models used to predict portuguese (which has more observations), and only reproduce models with inputs A and C (models with and without previous grades).
+
+Additionally, we would like to present one model of our own using regression best subset algorithm to see how accurately we can produce a model that fits the G3 variable.
