@@ -53,70 +53,104 @@ Referring back to the original paper, there are 33 columns of interest. Those va
 math[3, ]
 ```
 
-`school` - Either `GP` (Gabriel Pereira) or `MS` (Mousinho da Silveira) of which school a student attended.
+`school` - Binary values of either `GP` (Gabriel Pereira) or `MS` (Mousinho da Silveira) of which school a student attended.
 
-`sex` - Either `F` (female) or `M` (male) regarding a students sex.
+`sex` - Binary values of either `F` (female) or `M` (male) regarding a students sex.
 
 `age` - Numeric value of a students age from 15 - 22.
 
-`address` - Either `U` (urban) or `R` (rural) regarding a students home address.
+`address` - Binary values of either `U` (urban) or `R` (rural) regarding a students home address.
 
-`famsize` -
+`famsize` - Binary values of either `LE3` (less than or equal to 3 family members) or `GT3` (greater than 3 family members).
 
-`Pstatus` -
+`Pstatus` - Binary values of either `T` (parents are living together) or `A` (parents are living apart) for parents living status.
 
-`Medu` -
+`Medu` - Leveled integer value of range 0-4 with 0 reflecting no education or below primary completion, 1 reflecting completion of primary education (up to 4th grade), 2 reflecting completion of 5-9th grade education, 3 reflecting completion of secondary education, and 4 reflecting higher education (college degree or higher) of a students' mother's education.
 
-`Fedu` -
+`Fedu` - Leveled integer value of range 0-4 with 0 reflecting no education or below primary completion, 1 reflecting completion of primary education (up to 4th grade), 2 reflecting completion of 5-9th grade education, 3 reflecting completion of secondary education, and 4 reflecting higher education (college degree or higher) of a students' father's education.
 
-`Mjob` -
+`Mjob` - Nominal values for a students' mother's job classified as `teacher`, `health` (any care related profession), `services` (any administrative or police related field), `at_home` (none), `other` (not stated).
 
-`Fjob` -
+`Fjob` - Nominal values for a students' father's job classified as `teacher`, `health` (any care related profession), `services` (any administrative or police related field), `at_home` (none), `other` (not stated).
 
-`reason` -
+`reason` - Nominal values for a student's reason for school selection as either `home` (close to home), `reputation`, `course` (valued courses provided), `other` (reason not stated).
 
-`guardian` -
+`guardian` - Nominal values for who the primary caregiver of the student is as either `mother`, `father`, or `other`. Reason for why both parents cannot be listed is not stated.
 
-`traveltime` -
+`traveltime` - Leveled integer values representing travel time to school on a scale of 1-4, `1` reflecting \<15 minutes, `2` reflecting 15-30 minutes, `3` reflecting 30 minutes to 1 hour, `4` reflecting \>1 hour travel time.
 
-`studytime` -
+`studytime` - Leveled integer values representing average weekly study time reported by the student on a scale of 1-4, `1` reflecting \<2 hours, `2` reflecting 2-5 hours, `3` reflecting 5-10 hours, `4` reflecting \>10 hours study time.
 
-`failures` -
+`failures` - Leveled integer values representing the number of classes a student has failed prior to enrolling in this course with a scale of 1-4, each reflecting the amount of courses failed, 4 being \> or = 4 failed classes.
 
-`schoolsup` -
+`schoolsup` - Binary value for either `yes` or `no` student receiving additional educational support outside of the course. Not specified if this is inclusive of in-school tutoring and/or support such as services for language gaps or speech development.
 
-`famsup` -
+`famsup` - Binary value for either `yes` or `no` student receiving additional family educational support outside of the course (family members assist in helping the student with studying or homework).
 
-`paid` -
+`paid` - Binary value for either `yes` or `no` student is paying for additional educational support for the course.
 
-`activities` -
+`activities` - Binary value for either `yes` or `no` student is participating in extra-curricular activities.
 
-`nursery` -
+`nursery` - Binary value for either `yes` or `no` student attended nursery school in the past (equivalent to pre-school education in America).
 
-`higher` -
+`higher` - Binary value for either `yes` or `no` student wants to pursue higher education courses in the future.
 
-`internet` -
+`internet` - Binary value for either `yes` or `no` student has internet access at home.
 
-`romantic` -
+`romantic` - Binary value for either `yes` or `no` student is currently in a romantic relationship.
 
-`famrel` -
+`famrel` - Leveled integer values scaled from 1-5 for a students quality of family relationships, `1` being very bad and `5` being excellent.
 
-`freetime` -
+`freetime` - Leveled integer values scaled from 1-5 for a students free time after school, `1` being very little free time and `5` being lots of free time.
 
-`goout` -
+`goout` - Leveled integer values scaled from 1-5 of how often a student goes out with freinds, `1` being not often and `5` being very often.
 
-`Dalc` -
+`Dalc` - Leveled integer values scaled from 1-5 of how often a student consumes alcohol on a weekday, `1` being not often and `5` being very often.
 
-`Walc` -
+`Walc` - Leveled integer values scaled from 1-5 of how often a student consumes alcohol on a weekend, `1` being not often and `5` being very often.
 
-`health` -
+`health` - Leveled integer values scaled from 1-5 of a students health status, `1` being bad and `5` being very good.
 
-`absences` -
+`absences` - Numeric values of the number of day absences the student has from the course so far, i.e. a value of `5` would mean the student has been absent from the class a total of 5 times.
 
-`G1` -
+`G1` - Leveled integer values scaled from 0-20 of a students first period grade in the course(period is a trimester in American equivalency).
 
-`G2` -
+`G2` - Leveled integer values scaled from 0-20 of a students second period grade in the course.
 
-`G3` -
+`G3` - Leveled integer values scaled from 0-20 of a students third period grade in the course.
 
 ### Classes & Values
+
+Given the review of our variables and their values, we should expect (was gonna explain what classes i expect them to be and also suggest changing the G1-G3 to numeric values so we can use them unleveled)
+
+```{r}
+
+```
+
+### Cleaning Up
+
+anything extra you may want to add or clean or change
+
+## Correlations & Distribution 
+
+### Means & Distributions
+
+summaries, correlations, plots, anything prior to statistical analysis
+
+### Correlations & Plots
+
+etc
+
+## Statistical Analysis
+
+### Review of Plan to fit Models
+
+talk about models, which they used in the paper, hence why we will run certain statistical analysis
+
+### Running Statistical Analysis to Properly Fit Models
+
+statistical analysis necessary to conduct prior to modeling
+
+## Modeling Procedures 
+
+talk about models in paper, models we will replicate, how, and why, etc
