@@ -124,8 +124,11 @@ math[3, ]
 Given the review of our variables and their values, we should expect (was gonna explain what classes i expect them to be and also suggest changing the G1-G3 to numeric values so we can use them unleveled)
 
 ```{r}
-
+str(math)
+str(portuguese)
 ```
+
+This gives us a general idea of what each column look, and the class which is all integers and character columns.
 
 ### Cleaning Up
 
@@ -170,8 +173,6 @@ math2$five_level<-factor(math2$five_level)
 portuguese2$five_level<-factor(portuguese2$five_level)
 ```
 
-anything extra you may want to add or clean or change
-
 ## Correlations & Distribution
 
 ### Means & Distributions
@@ -188,17 +189,21 @@ ggplot(data=portuguese2, aes(x=pass_fail))+
   geom_bar()
 ggplot(data=math2, aes(x=pass_fail))+
   geom_bar()
+ggplot(data=portuguese2, aes(x=G3))+
+  geom_bar()
+ggplot(data=math2, aes(x=G3))+
+  geom_bar()
 ```
 
 ### Correlations & Plots
-
-etc
 
 ```{r}
 ggplot(data=math2, aes(x=G3, y=G2))+
   geom_point()+
   labs(title="Math final scores with G2 scores")
 ```
+
+Clear correlation between second period grades and final grade, shows the inbalance of models that use G2 as a predictor vs those that don't.
 
 ## Statistical Analysis
 
@@ -230,8 +235,19 @@ Each model was run with each of 3 input setups. The setups included (A), all var
 
 statistical analysis necessary to conduct prior to modeling
 
+```{r}
+
+
+```
+
 ## Modeling Procedures
 
 In order to accurately reproduce some of these models, we will prioritize replicating the models used to predict portuguese (which has more observations), and only reproduce models with inputs A and C (models with and without previous grades).
 
 Additionally, we would like to present one model of our own using regression best subset algorithm to see how accurately we can produce a model that fits the G3 variable.
+
+Note on data splitting:
+
+The paper explains: "To access the predictive performances, 20 runs of a 10- fold cross-validation (Hastie et al. 2001) (in a total of 200 simulations) were applied to each configuration. Under such scheme, for a given run the data is randomly di- vided in 10 subsets of equal size. Sequentially, one dif- ferent subset is tested (with 10% of the data) and the remaining data used to fit the DM technique. At the end of this process, the evaluated test set contains the whole dataset, although 10 variations of the same DM model are used to create the predictions."
+
+To replicate the data we will not do an initial 20-80 split but run the 10-fold cross-validation on our models.
