@@ -320,3 +320,33 @@ The paper states: "To access the predictive performances, 20 runs of a 10- fold 
 To replicate the data we will not do an initial 20-80 split but run the 10-fold cross-validation on our models. This comes out to about 10% of the data utilized per fold, so 90% of our data will be used to train the models, and 10% will be used to test the data.
 
 In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we will remove variables `studytime,` `schoolsup`, `paid`, `absences`, `G1`, and `G2`, and examine solely the Portuguese course data for time constraint reasons.
+
+# Part 2: Model Fitting
+
+## Model 1:
+
+Recall we are only creating models to predict outcomes of portuguese and will not use G1 or G2 as predictors due to the clear prediction power of the variable and the colinearity. We will also be replicating the paper by using 20 runs of 10-fold cross-validation.
+
+```{r}
+library(rminer)
+#portuguese2$pass_fail<-as.factor(portuguese2$pass_fail)
+portuguese2 <- portuguese2 %>%
+  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
+
+K<-c("kfold", 10)
+DT<-mining(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="dt", Runs=20, method=K)
+print(mean(DT$error))
+savemining(DT,"DT-results")
+
+```
+
+This below was just trying to make more of them categorical, it doesn't seem to make a good difference in the outcome though so probably delete later.
+
+```{r}
+portuguese3 <- portuguese2 %>%
+  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex, freetime, goout, Walc, Dalc, health), as.factor))
+```
+
+```{r}
+rpart(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="rpart")
+```
