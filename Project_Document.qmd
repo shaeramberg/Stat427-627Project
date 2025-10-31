@@ -143,7 +143,7 @@ The original data from the survey was processed and certain variables were exclu
 Our general approach to this project involves replicating some of the models used in the paper. The paper would predict student success using the G3 score, in one of three forums: binary classification, classification with five levels, and regression on the 0-20 scale. To ease the replication process we will create two new columns to represent the forum we want our output to be in:
 
 ```{r}
-math |> 
+math <- math |> 
   mutate(five_level=case_when(
     G3 > 15 ~ "I",
     G3 >= 14 ~ "II",
@@ -157,7 +157,7 @@ math |>
     )) -> math2
 
 
-portuguese |> 
+portuguese <- portuguese |> 
   mutate(five_level=case_when(
     G3 > 15 ~ "I",
     G3 >= 14 ~ "II",
@@ -321,13 +321,13 @@ Furthermore, more pre-processing was established with nominal variables as well.
 
 ## Modeling Procedures
 
-According to the paper that we are replicating, their goal was to "give a simple description that summarizes the best DM models". My colleague and I want to take a slightly different approach where we utilize this data to create a model signifying a different usage of the model. The authors used this model as it was collected, essentially creating a model that could be used to predict student outcomes once the student was in their third trimester of the class.
+According to the paper that we are replicating, their goal was to "give a simple description that summarizes the best DM models". The authors used this model as it was collected, essentially creating a model that could be used to predict student outcomes once the student was in their third trimester of the class. We intend to work with the same desired prediction and usage of the variables.
 
-In order to differentiate our model from theirs while still replicating the study, we wish to take the approach that the model is used prior to a students choice to enroll in a class. Essentially, our model see's to predict a students outcome in the class using variables that are known prior to class enrollment so that a user could predict their grade before enrollment, potentially steering students towards or away from the class given their predicted outcome score (if our model proves statistically significant). This would mean removing variables G1 and G2 given their grades would not be recorded if the class was not yet taken. We would also be required to remove `studytime,` `schoolsup`, `paid`, `absences` as each of these variables are inclusive of information that can only be obtained while being currently enrolled in the class.
+In order to differentiate our model from theirs while still replicating part of the study, we wish to take the approach that the model is used prior to a students choice to enroll in a class. Essentially, our model see's to predict a students outcome in the class using variables that are known prior and during class enrollment so that a user could predict their grade before the third trimester.
 
-We understand the choice of the authors to use an A-B-C subset method, however, given our full removal of G2 and G1, we decided to solely select subset (C). Exclusion of G1 and G2 would indicate a model that can predict a students grade prior to finishing trimester 1.
+We understand the choice of the authors to use an A-B-C subset method, however, given time constraint, we decided to solely select subset (A). Inclusion of G1 and G2 would indicate a model that can predict a students grade for trimester 3 while considering trimester 1 and 2.
 
-We will prioritize replicating the models used to predict outcomes for the Portuguese course (which has more observations, 649 v. 395) for time constraint, and only reproduce models with input C, as we want to view prediction power without the utilization of G1 and G2 grades, due to our differing model usage.
+We will prioritize replicating two of their original models - Decision Tree (DT) and Random Forest (RF). However, we plan to add three of our models: Partial Least Squares (PLS), LASSO Regression (LR), and Linear Discriminant Analysis (LDA). PLS and LR will use continuous 1-20 outcomes while our LDA would utilize the binary (pass/fail) outcome. We will also add a simple Multiple Linear Regression (MLR) as a baseline model. All of such will be used to predict outcomes for the Portuguese course (which has more observations, 649 v. 395) for time constraint, and only reproduce models with input A, as we want to view prediction power with the utilization of G1 and G2 grades.
 
 Note on data splitting:
 
@@ -335,32 +335,131 @@ The paper states: "To access the predictive performances, 20 runs of a 10- fold 
 
 To replicate the data we will not do an initial 20-80 split but run the 10-fold cross-validation on our models. This comes out to about 10% of the data utilized per fold, so 90% of our data will be used to train the models, and 10% will be used to test the data.
 
-In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we will remove variables `studytime,` `schoolsup`, `paid`, `absences`, `G1`, and `G2`, and examine solely the Portuguese course data for time constraint reasons.
+In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we intend to replicate Decision Tree and Random Forest from the original paper but replace the other models with Partial Least Squares, Lasso and LDA, and examine solely the Portuguese course data for time constraint reasons.
 
 # Part 2: Model Fitting
 
-## Model 1:
+## Multiple Linear Regression (MLR) - continuous 1-20
+
+Prior to evaluating the performance of our models, we decided to create a "dummy" model for baseline comparison to efficiently evaluate the performance of our more complex models, such as Decision Tree or Random Forest models. While complex models provide deeper analysis on feature interactions and non-linearity considerations, they can be prone to over-fitting and require more computation and steps, which may lead to mistakes on our part. In order to prevent and check for mistakes such as these, we are creating this baseline model to compare performance, to assure our complex models are not performing *drastically* different.
+
+Below is our model, followed by assumptions to assure reliability.
+
+```{r}
+library(mgcv)
+# we decided on a 90-10 split
+set.seed(627)
+train.pct <- 0.9
+Z <- sample(nrow(portuguese), floor(train.pct*nrow(portuguese)))
+portuguese.data <- portuguese[Z, ]
+holdout.data <- portuguese[-Z, ]
+# remember we are removing pass_fail and five_level since those are for categorical outcomes
+MLR <- lm(G3 ~ . -five_level -pass_fail, data = portuguese.data) 
+```
+
+Lets check and see how it is performing:
+
+```{r}
+summary(MLR)
+```
+
+Our model is showing an R squared of .8594, so our model is covering 86% of the variance in G3. This is relatively good. Our p-value indicates a significant model, lets check for MSE.
+
+```{r}
+predicted_MLR <- predict(MLR, newdata = portuguese.data)
+
+mean((predicted_MLR - portuguese.data$G3)^2)
+min(portuguese.data$G3)
+max(portuguese.data$G3)
+```
+
+The MSE for this model was \~1.52, which decently accurate. Within range of knowing the difference of a students passing or failing a class. If a student wanted strategic accuracy, a 1.5 difference in score prediction is reliable.
+
+## Logistic Regression (LR) - Binary Outcome
+
+Below is our model, followed by assumptions to assure reliability.
+
+```{r}
+# remember we are removing G3 and five_level since those are for other outcomes
+
+# changing pass to 1 and fail to 0
+library(dplyr)
+
+portuguese_pass_fail <- portuguese.data |>
+  mutate(pass_fail = ifelse(pass_fail == "Pass", 1, 0))
+
+LR <- glm(pass_fail ~ . -five_level -G3, data = portuguese_pass_fail, 
+          family = binomial) 
+```
+
+Lets check and see how it is performing:
+
+```{r}
+summary(LR)
+```
+
+Our model is showing an residual deviance of 132.68, so our model is covering a large portion of the variance in pass_fail. This is good. Our AIC indicates a good fit.
+
+### 
+
+## Partial Least Squares - Continuous 1-20
+
+```{r}
+portuguese_clean <- portuguese.data[, sapply(portuguese.data, 
+                                             function(x) length(unique(x)) > 1)]
+
+portuguese_lmF <- lm(G3 ~ . -five_level -pass_fail, data=portuguese_clean)
+# matrix
+portuguese.X <- model.matrix(portuguese_lmF)[, -1]
+portuguese.pc <- prcomp(portuguese.X, scale=TRUE)
+portuguese.pc
+
+library(pls)
+
+PLS <- plsr(G3 ~ ., data = portuguese.data, scale = TRUE, validation = "CV")
+summary(PLS)
+```
+
+Lets plot it:
+
+```{r}
+validationplot(PLS)
+```
+
+It seems at 13 components the models variance for G3 doesn't get any higher. We prefer a model that's more simple, and given the additional components does not add predictive gain, we will stick with 13.
+
+Let's put it to the test.
+
+```{r}
+predicted_pls <- predict(PLS, newdata = portuguese.data, ncomp = 13)
+# MSE
+mean((predicted_pls - portuguese.data$G3)^2)
+```
+
+A smaller MSE than our dummy model, this model is showing excellent prediction ability. An MSE of 1 is not likely to show any significant difference with grade predictability.
+
+## Model 2:
 
 Recall we are only creating models to predict outcomes of portuguese and will not use G1 or G2 as predictors due to the clear prediction power of the variable and the colinearity. We will also be replicating the paper by using 20 runs of 10-fold cross-validation.
 
 ```{r}
-library(rminer)
+#library(rminer)
 #portuguese2$pass_fail<-as.factor(portuguese2$pass_fail)
 
-K<-c("kfold", 10)
-DT<-mining(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="dt", Runs=20, method=K)
-print(mean(DT$error))
-savemining(DT,"DT-results")
+#K<-c("kfold", 10)
+#DT<-mining(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="dt", Runs=20, method=K)
+#print(mean(DT$error))
+#savemining(DT,"DT-results")
 
 ```
 
 This below was just trying to make more of them categorical, it doesn't seem to make a good difference in the outcome though so probably delete later.
 
 ```{r}
-portuguese3 <- portuguese2 %>%
-  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex, freetime, goout, Walc, Dalc, health), as.factor))
+#portuguese3 <- portuguese2 %>%
+#  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex, freetime, goout, Walc, Dalc, health), as.factor))
 ```
 
 ```{r}
-rpart(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="rpart")
+#rpart(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="rpart")
 ```
