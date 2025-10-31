@@ -271,6 +271,22 @@ print(cor_matrix)
 
 However, now that we have run a correlation matrix, it is displaying very strong correlation between our variables G1, G2, and G3. This confirms high collinearity among them, which would cause an increase in standard errors in our regression models.
 
+## Exploratory Graphs
+
+```{r}
+portuguese2 <- portuguese2 %>%
+  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
+
+ggplot(data=portuguese2, aes(x=as.factor(failures), y=G3))+
+  geom_boxplot()
+ggplot(data=portuguese2, aes(x=as.factor(Dalc), y=G3))+
+  geom_boxplot()
+ggplot(data=portuguese2, aes(x=as.factor(studytime), y=G3))+
+  geom_boxplot()
+```
+
+We wanted to look at the relationship between some predictor variables that we thought may have a strong relationship to G3 final grades. We do see small correlations like lower grades as alcohol consumption increases, and higher grades as study time increases.
+
 ### Review of Plan to fit Models
 
 Our general approach to this project will be to recreate many of the models created in the [paper](https://repositorium.uminho.pt/server/api/core/bitstreams/991a0e2b-249d-466d-afef-937d975ff7fc/content) connected with this data set. In the paper, the classification/regression methods tried to predict G3 (passing/failing Portuguese and Math) in 3 supervised approaches:
@@ -330,8 +346,6 @@ Recall we are only creating models to predict outcomes of portuguese and will no
 ```{r}
 library(rminer)
 #portuguese2$pass_fail<-as.factor(portuguese2$pass_fail)
-portuguese2 <- portuguese2 %>%
-  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
 
 K<-c("kfold", 10)
 DT<-mining(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="dt", Runs=20, method=K)
