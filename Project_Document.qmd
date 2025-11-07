@@ -172,6 +172,9 @@ portuguese <- portuguese |>
 
 math2$five_level<-factor(math2$five_level)
 portuguese2$five_level<-factor(portuguese2$five_level)
+
+portuguese2 <- portuguese2 %>%
+  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
 ```
 
 \newpage
@@ -274,8 +277,6 @@ However, now that we have run a correlation matrix, it is displaying very strong
 ## Exploratory Graphs
 
 ```{r}
-portuguese2 <- portuguese2 %>%
-  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
 
 ggplot(data=portuguese2, aes(x=as.factor(failures), y=G3))+
   geom_boxplot()
@@ -350,9 +351,9 @@ library(mgcv)
 # we decided on a 90-10 split
 set.seed(627)
 train.pct <- 0.9
-Z <- sample(nrow(portuguese), floor(train.pct*nrow(portuguese)))
-portuguese.data <- portuguese[Z, ]
-holdout.data <- portuguese[-Z, ]
+Z <- sample(nrow(portuguese2), floor(train.pct*nrow(portuguese2)))
+portuguese.data <- portuguese2[Z, ]
+holdout.data <- portuguese2[-Z, ]
 # remember we are removing pass_fail and five_level since those are for categorical outcomes
 MLR <- lm(G3 ~ . -five_level -pass_fail, data = portuguese.data) 
 ```
@@ -374,6 +375,11 @@ max(portuguese.data$G3)
 ```
 
 The MSE for this model was \~1.52, which decently accurate. Within range of knowing the difference of a students passing or failing a class. If a student wanted strategic accuracy, a 1.5 difference in score prediction is reliable.
+
+####ATTEMPT 2######\
+(Using just the Binary Outcome and we will replicate Input C where we keep G1 and G2)
+
+Re-do the below LR using PCA
 
 ## Logistic Regression (LR) - Binary Outcome
 
@@ -400,45 +406,42 @@ summary(LR)
 
 Our model is showing an residual deviance of 132.68, so our model is covering a large portion of the variance in pass_fail. This is good. Our AIC indicates a good fit.
 
-### 
+### Model 2: Step-wise AIC
 
-## Partial Least Squares - Continuous 1-20
-
-```{r}
-portuguese_clean <- portuguese.data[, sapply(portuguese.data, 
-                                             function(x) length(unique(x)) > 1)]
-
-portuguese_lmF <- lm(G3 ~ . -five_level -pass_fail, data=portuguese_clean)
-# matrix
-portuguese.X <- model.matrix(portuguese_lmF)[, -1]
-portuguese.pc <- prcomp(portuguese.X, scale=TRUE)
-portuguese.pc
-
-library(pls)
-
-PLS <- plsr(G3 ~ ., data = portuguese.data, scale = TRUE, validation = "CV")
-summary(PLS)
-```
-
-Lets plot it:
+### Model 3: Decision Tree
 
 ```{r}
-validationplot(PLS)
+library(tree)
+tree_initial<-tree(pass_fail ~ . -G3-five_level, data=portuguese.data)
+summary(tree_initial)
+pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
+table(pred_val, holdout.data$pass_fail)
+mis.class<-mean(pred_val != holdout.data$pass_fail)
+mis.class
 ```
 
-It seems at 13 components the models variance for G3 doesn't get any higher. We prefer a model that's more simple, and given the additional components does not add predictive gain, we will stick with 13.
+Our initial tree model had a misclassification rate of around 10.8% on our testing data. We will tune it to see if that can be improved.
 
-Let's put it to the test.
+Tuning tree:
 
 ```{r}
-predicted_pls <- predict(PLS, newdata = portuguese.data, ncomp = 13)
-# MSE
-mean((predicted_pls - portuguese.data$G3)^2)
+set.seed(627)
+cv.tree.model<- cv.tree(tree_initial, FUN=prune.misclass, K=10)
+cv.tree.model
+plot(cv.tree.model$size, cv.tree.model$dev, type="b")
+tuned_tree<-prune.misclass(tree_initial, best=3)
+plot(tuned_tree)
+text(tuned_tree, pretty=0)
+pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
+table(pred_val2, holdout.data$pass_fail)
+mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
+mis.class2
+
 ```
 
-A smaller MSE than our dummy model, this model is showing excellent prediction ability. An MSE of 1 is not likely to show any significant difference with grade predictability.
+Tuning the tree brings our misclassification rate down to 7.7% which is better, but the model is very inflexible now.
 
-## Model 2:
+## Previous Failed Attempt (remove later):
 
 Recall we are only creating models to predict outcomes of portuguese and will not use G1 or G2 as predictors due to the clear prediction power of the variable and the colinearity. We will also be replicating the paper by using 20 runs of 10-fold cross-validation.
 
