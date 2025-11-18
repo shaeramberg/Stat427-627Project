@@ -157,7 +157,7 @@ math <- math |>
     )) -> math2
 
 
-portuguese <- portuguese |> 
+portuguese |> 
   mutate(five_level=case_when(
     G3 > 15 ~ "I",
     G3 >= 14 ~ "II",
@@ -290,7 +290,7 @@ We wanted to look at the relationship between some predictor variables that we t
 
 ### Review of Plan to fit Models
 
-Our general approach to this project will be to recreate many of the models created in the [paper](https://repositorium.uminho.pt/server/api/core/bitstreams/991a0e2b-249d-466d-afef-937d975ff7fc/content) connected with this data set. In the paper, the classification/regression methods tried to predict G3 (passing/failing Portuguese and Math) in 3 supervised approaches:
+Our general approach to this project will be to recreate some of the models created in the [paper](https://repositorium.uminho.pt/server/api/core/bitstreams/991a0e2b-249d-466d-afef-937d975ff7fc/content) connected with this data set and additionally create some of our own. In the paper, the classification/regression methods tried to predict G3 (passing/failing Portuguese and Math) in 3 supervised approaches:
 
 -   Binary (Pass/Fail) - Pass is considered `G3`\>/=10; else is Fail
 
@@ -334,9 +334,11 @@ Note on data splitting:
 
 The paper states: "To access the predictive performances, 20 runs of a 10- fold cross-validation (Hastie et al. 2001) (in a total of 200 simulations) were applied to each configuration. Under such scheme, for a given run the data is randomly divided in 10 subsets of equal size. Sequentially, one different subset is tested (with 10% of the data) and the remaining data used to fit the DM technique. At the end of this process, the evaluated test set contains the whole dataset, although 10 variations of the same DM model are used to create the predictions."
 
-To replicate the data we will not do an initial 20-80 split but run the 10-fold cross-validation on our models. This comes out to about 10% of the data utilized per fold, so 90% of our data will be used to train the models, and 10% will be used to test the data.
+We will do an initial 20-80 split and run cross-validation on most of our models.
 
-In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we intend to replicate Decision Tree and Random Forest from the original paper but replace the other models with Partial Least Squares, Lasso and LDA, and examine solely the Portuguese course data for time constraint reasons.
+In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we intend to replicate Decision Tree and Random Forest from the original paper but replace the other models with... change
+
+Partial Least Squares, Lasso and LDA, and examine solely the Portuguese course data for time constraint reasons.
 
 # Part 2: Model Fitting
 
@@ -348,10 +350,6 @@ Below is our model, followed by assumptions to assure reliability.
 
 ```{r}
 library(mgcv)
-# we decided on a 90-10 split
-set.seed(627)
-train.pct <- 0.9
-Z <- sample(nrow(portuguese2), floor(train.pct*nrow(portuguese2)))
 portuguese.data <- portuguese2[Z, ]
 holdout.data <- portuguese2[-Z, ]
 # remember we are removing pass_fail and five_level since those are for categorical outcomes
@@ -376,12 +374,54 @@ max(portuguese.data$G3)
 
 The MSE for this model was \~1.52, which decently accurate. Within range of knowing the difference of a students passing or failing a class. If a student wanted strategic accuracy, a 1.5 difference in score prediction is reliable.
 
-####ATTEMPT 2######\
+## New Modeling Attempt
+
+####ATTEMPT 2######
+
+\
 (Using just the Binary Outcome and we will replicate Input C where we keep G1 and G2)
+
+Run the following before modeling and use Portuguese.data to ensure all variables are there and read as the correct class (potentially delete pass/fail or five/level if we commit to using not those)
+
+PSA: Do not do any testing data matricies or calculations yet, wait until all models are complete before using the testing data at the end.
+
+```{r}
+portuguese |> 
+  mutate(five_level=case_when(
+    G3 > 15 ~ "I",
+    G3 >= 14 ~ "II",
+    G3 >=12 ~ "III",
+    G3 >=10  ~ "IV",
+    G3 < 10 ~ "V"
+  )) |> 
+    mutate(pass_fail=case_when(
+      G3>=10 ~ "Pass",
+      G3<10 ~ "Fail"
+    )) -> portuguese2
+
+portuguese2$five_level<-factor(portuguese2$five_level)
+
+portuguese2 <- portuguese2 %>%
+  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
+
+#portuguese2 <- portuguese2 |>
+#  mutate(pass_fail = ifelse(pass_fail == "Pass", 1, 0))
+#Commented out code that changed pass fail to 0 1 because our models need to read the response as classification (because they are classification models)
+
+set.seed(627)
+train.pct <- 0.8
+Z <- sample(nrow(portuguese2), floor(train.pct*nrow(portuguese2)))
+portuguese.data <- portuguese2[Z, ]
+holdout.data <- portuguese2[-Z, ]
+
+
+```
+
+Also note we will use cross validation (as requested in the doc) and 20% testing 80% training data.
 
 Re-do the below LR using PCA
 
-## Logistic Regression (LR) - Binary Outcome
+## Logistic Regression (LR) with PCA - Binary Outcome- CHANGE
 
 Below is our model, followed by assumptions to assure reliability.
 
@@ -391,8 +431,6 @@ Below is our model, followed by assumptions to assure reliability.
 # changing pass to 1 and fail to 0
 library(dplyr)
 
-portuguese_pass_fail <- portuguese.data |>
-  mutate(pass_fail = ifelse(pass_fail == "Pass", 1, 0))
 
 LR <- glm(pass_fail ~ . -five_level -G3, data = portuguese_pass_fail, 
           family = binomial) 
@@ -411,16 +449,12 @@ Our model is showing an residual deviance of 132.68, so our model is covering a 
 ### Model 3: Decision Tree
 
 ```{r}
+set.seed(627)
 library(tree)
-tree_initial<-tree(pass_fail ~ . -G3-five_level, data=portuguese.data)
+tree_initial<-tree(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data)
 summary(tree_initial)
-pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
-table(pred_val, holdout.data$pass_fail)
-mis.class<-mean(pred_val != holdout.data$pass_fail)
-mis.class
-```
 
-Our initial tree model had a misclassification rate of around 10.8% on our testing data. We will tune it to see if that can be improved.
+```
 
 Tuning tree:
 
@@ -432,14 +466,46 @@ plot(cv.tree.model$size, cv.tree.model$dev, type="b")
 tuned_tree<-prune.misclass(tree_initial, best=3)
 plot(tuned_tree)
 text(tuned_tree, pretty=0)
-pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
-table(pred_val2, holdout.data$pass_fail)
-mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
-mis.class2
+
 
 ```
 
-Tuning the tree brings our misclassification rate down to 7.7% which is better, but the model is very inflexible now.
+#### Model 4: Random Forest
+
+```{r}
+library(randomForest)
+set.seed(627)
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=6, importance=TRUE)->RF6
+RF6
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=5, importance=TRUE)->RF5
+RF5
+set.seed(627)
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=4, importance=TRUE)->RF4
+RF4
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=7, importance=TRUE)->RF7
+RF7
+```
+
+Looking at the OOB estimate of error rate, and keeping in mind the ideal of m = sqrt(p), we tried making m 4, 5, 6, and 7 (we have 30 predictors in the model). The model with m=8 produces the smallest OOB error rate of 15.41.
+
+looking at RF variable importance:
+
+```{r}
+importance(RF6)
+varImpPlot(RF6)
+```
+
+Failure seems to be very important in improving the accuracy, followed by school and absences.
+
+```{r}
+plot(RF6)
+```
+
+### Model 5: Support Vector Machine
+
+more models if time
+
+### Model 5: 
 
 ## Previous Failed Attempt (remove later):
 
@@ -466,3 +532,26 @@ This below was just trying to make more of them categorical, it doesn't seem to 
 ```{r}
 #rpart(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="rpart")
 ```
+
+## Using Testing data on models
+
+DT\
+
+```{r}
+pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
+table(pred_val, holdout.data$pass_fail)
+mis.class<-mean(pred_val != holdout.data$pass_fail)
+mis.class
+
+```
+
+```{r}
+pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
+table(pred_val2, holdout.data$pass_fail)
+mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
+mis.class2
+```
+
+Our initial tree model had a misclassification rate of around 13.08% on our testing data. We will tune it to see if that can be improved. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now. Note that reason is a categorical variable with 4 options, course and other being two of the options.
+
+RF:
