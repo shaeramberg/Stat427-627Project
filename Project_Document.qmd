@@ -492,7 +492,32 @@ plot(RF6)
 
 ### Model 5: Support Vector Machine
 
-more models if time
+```{r}
+library(e1071)
+svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data)
+summary(svm.lin)
+svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data)
+summary(svm.pol)
+svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data)
+summary(svm.rad)
+svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data)
+summary(svm.sig)
+
+```
+
+```{r}
+set.seed(627)
+svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning1
+svm.tuning1$best.parameters
+
+```
+
+```{r}
+svm.tuning1$best.parameters
+best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
+best.svm
+```
 
 ## Using Testing data on models
 
@@ -516,3 +541,19 @@ mis.class2
 Our initial tree model had a misclassification rate of around 13.08% on our testing data. We will tune it to see if that can be improved. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now. Note that reason is a categorical variable with 4 options, course and other being two of the options.
 
 #### Random Forest Model - Binary Setup C
+
+```{r}
+svm.tuning1$best.performance
+```
+
+#### Support Vector Machine Model - Binary Setup C
+
+```{r}
+svm.pred <- predict(best.svm, newdata=holdout.data)
+err.tab <- c(mean(holdout.data$pass_fail != svm.pred), svm.tuning$best.performance)
+err.tab
+```
+
+Misclassification rate on new data: 13.08%
+
+Misclassification based on CV for the training data: 13.50%
