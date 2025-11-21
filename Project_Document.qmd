@@ -380,7 +380,7 @@ holdout.data <- portuguese2[-Z, ]
 
 Note: we will use cross validation (as requested in the doc) and 20% testing 80% training data.
 
-## Logistic Regression (LR) with PCA - Binary Outcome
+### Model 1: Logistic Regression with PCA - Binary Outcome
 
 Below is our model, followed by assumptions to assure reliability.
 
@@ -429,20 +429,65 @@ portguese_pcr <- pcr(pass_fail ~ . -five_level -G3 -G2 -G1,
                      scale = TRUE, validation = "CV")
 
 summary(portguese_pcr)
+validationplot(portguese_pcr, val.type = "RMSEP")
 ```
 
-**STILL WORKING**
+Based on the plot displaying our RMSEP, points at around 16, 22, and 35 components should give us the lowest RMSEP. When looking at the summary in depth, 21 and 22 components have the same low .3394 RMSEP for CV with 21 components at .3380 for adjusted CV. This RMSEP doesn't get much smaller later on with more components, with 35 components having a .3378 RMSEP. Given this, to avoid over fitting, we will select 21 components for our final model. Noting, this is not a great RMSEP rate, as it does not explain a lot of the variance.
 
-### Model 2: Step-wise AIC
+```{r}
+predicted_pcr <- predict(portguese_pcr, newdata = portuguese.data_01,
+                         ncomp = 21)
+
+# Accuracy
+predictions <- predicted_pcr[,1, 1] # wouldnt work with just [,1] needed both
+real_values <- portuguese.data_01$pass_fail
+
+classification <- ifelse(predictions > 0.5, 1, 0) # funneling to 0 or 1
+accuracy_rate <- mean(classification == real_values)
+accuracy_rate
+
+
+table(Predicted = classification, Actual = real_values)
+```
+
+Our accuracy rate was actually pretty good, with our model accurately predicting 84.2% of our data correctly. I also added a matrix to look at specifically what the model is doing well or poorly. It accurately categorized most of the passing students correctly, and seems to inaccurately predict those who failed the class overall, with 68 of those who failed being classified by the model as passed, versus 16 correct predictions of those who failed. Overall, our model seems to do well at predicting if you passed, when you actually do pass. It is not the best at predicting the failing students. Note: inaccurately predicted 80.9% of the failing students to passing.
+
+### Model 2: Lasso Regression - Binary
+
+```{r}
+library(boot)
+library(glmnet)
+
+portuguese.glm <- glm(pass_fail ~ . -G3 -five_level -G2 -G1, 
+                      data = portuguese.data_01)
+X <- model.matrix(portuguese.glm) [,-1]
+
+set.seed(627)
+portuguese_lasso <- cv.glmnet(x = X, y = portuguese.data_01$pass_fail, 
+                              alpha = 1,
+                              family = "binomial")
+portuguese_lasso
+```
+
+I see that our model for the minimum cv error (which was 0.02119) is selecting 21 predictors, the same amount of components we selected in our PCA model. For 1se, it selected 9 predictors with a 0.06472 error rate. Both of these are actually really good error rates for our model. For our model, I would like to select the min model with a 21 of our predictors. Its error rate is far smaller, and the deviance is lower. Lets see which of the predictors were selected.
+
+```{r}
+coef(portuguese_lasso, s = "lambda.min")
+
+predictions <- predict(portuguese_lasso, newx = X, s = "lambda.min", type = "response")
+classification <- ifelse(predictions > 0.5, 1, 0)
+mean(classification == portuguese.data_01$pass_fail)
+```
+
+It predicted 84.97% of the training data correctly, which is also relatively good. There are 9 nonzero predictors.
 
 ### Model 3: Decision Tree
 
 ```{r}
-set.seed(627)
-library(tree)
-tree_initial<-tree(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data)
-summary(tree_initial)
-
+set.seed(627) 
+library(tree) 
+tree_initial<-tree(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data) 
+summary(tree_initial) 
 ```
 
 Tuning tree:
@@ -494,48 +539,90 @@ plot(RF6)
 
 ```{r}
 library(e1071)
-svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data)
-summary(svm.lin)
-svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data)
-summary(svm.pol)
-svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data)
-summary(svm.rad)
-svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data)
-summary(svm.sig)
+#svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data)
+#summary(svm.lin)
+#svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data)
+#summary(svm.pol)
+#svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data)
+#summary(svm.rad)
+#svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data)
+#summary(svm.sig)
 
 ```
 
 ```{r}
-set.seed(627)
-svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning1
-svm.tuning1$best.parameters
+#set.seed(627)
+#svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
+#svm.tuning1
+#svm.tuning1$best.parameters
 
 ```
 
 ```{r}
-svm.tuning1$best.parameters
-best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
-best.svm
+#svm.tuning1$best.parameters
+#best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
+#best.svm
 ```
 
 ## Using Testing data on models
 
+#### Logistic Regression Model with PCA - Binary Setup C
+
+```{r}
+# creating 0,1 for holdout
+portuguese.data_01_holdout <- holdout.data |>
+  mutate(pass_fail = ifelse(pass_fail == "Pass", 1, 0))
+
+
+testing_pcr <- predict(portguese_pcr, newdata = portuguese.data_01_holdout,
+                         ncomp = 21)
+
+# Accuracy
+predictions <- testing_pcr[,1, 1] # wouldnt work with just [,1] needed both
+real_values <- portuguese.data_01_holdout$pass_fail
+
+pred_class <- ifelse(predictions > 0.5, 1, 0) # funneling to 0 or 1
+accuracy_rate <- mean(pred_class == real_values)
+accuracy_rate
+
+
+table(Predicted = pred_class, Actual = real_values)
+```
+
+Our testing data did even better than our model on the training data, we received 90.8% of accurate predictions, as well as improved our prediction ability for those who actually failed the class, with our previous classification of those who failed being falsely labeled as passed at 80.6%, and we are now at 68.75%. I would say this model accurately predicts our data.
+
+#### Lasso Regression - Binary Setup C
+
+```{r}
+portuguese.glm.holdout <- glm(pass_fail ~ . -G3 -five_level -G2 -G1, 
+                      data = portuguese.data_01_holdout)
+
+X <- model.matrix(portuguese.glm.holdout) [,-1]
+
+set.seed(627)
+
+predictions <- predict(portuguese_lasso, newx = X, s = "lambda.min", type = "response")
+classification <- ifelse(predictions > 0.5, 1, 0)
+mean(classification == portuguese.data_01_holdout$pass_fail)
+```
+
+The testing data was better predicted then the training data, in comparison to 83.81% prediction accuracy. This model also reflects predictive ability well.
+
 #### Decision Tree Model - Binary Setup C
 
 ```{r}
-pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
-table(pred_val, holdout.data$pass_fail)
-mis.class<-mean(pred_val != holdout.data$pass_fail)
-mis.class
+#pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
+#table(pred_val, holdout.data$pass_fail)
+#mis.class<-mean(pred_val != holdout.data$pass_fail)
+#mis.class
 
 ```
 
 ```{r}
-pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
-table(pred_val2, holdout.data$pass_fail)
-mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
-mis.class2
+#pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
+#table(pred_val2, holdout.data$pass_fail)
+#mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
+#mis.class2
 ```
 
 Our initial tree model had a misclassification rate of around 13.08% on our testing data. We will tune it to see if that can be improved. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now. Note that reason is a categorical variable with 4 options, course and other being two of the options.
@@ -549,9 +636,9 @@ svm.tuning1$best.performance
 #### Support Vector Machine Model - Binary Setup C
 
 ```{r}
-svm.pred <- predict(best.svm, newdata=holdout.data)
-err.tab <- c(mean(holdout.data$pass_fail != svm.pred), svm.tuning$best.performance)
-err.tab
+#svm.pred <- predict(best.svm, newdata=holdout.data)
+#err.tab <- c(mean(holdout.data$pass_fail != svm.pred), svm.tuning$best.performance)
+#err.tab
 ```
 
 Misclassification rate on new data: 13.08%
