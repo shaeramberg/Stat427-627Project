@@ -340,50 +340,11 @@ In summary, we intend to replicate this study, with key differences: we intend t
 
 Partial Least Squares, Lasso and LDA, and examine solely the Portuguese course data for time constraint reasons.
 
-# Part 2: Model Fitting
+# Part 2: Model Fitting - Binary; Set Up C
 
-## Multiple Linear Regression (MLR) - continuous 1-20
+If time allocates, we still intend to work towards replicating the models with five-level as well.
 
-Prior to evaluating the performance of our models, we decided to create a "dummy" model for baseline comparison to efficiently evaluate the performance of our more complex models, such as Decision Tree or Random Forest models. While complex models provide deeper analysis on feature interactions and non-linearity considerations, they can be prone to over-fitting and require more computation and steps, which may lead to mistakes on our part. In order to prevent and check for mistakes such as these, we are creating this baseline model to compare performance, to assure our complex models are not performing *drastically* different.
-
-Below is our model, followed by assumptions to assure reliability.
-
-```{r}
-library(mgcv)
-portuguese.data <- portuguese2[Z, ]
-holdout.data <- portuguese2[-Z, ]
-# remember we are removing pass_fail and five_level since those are for categorical outcomes
-MLR <- lm(G3 ~ . -five_level -pass_fail, data = portuguese.data) 
-```
-
-Lets check and see how it is performing:
-
-```{r}
-summary(MLR)
-```
-
-Our model is showing an R squared of .8594, so our model is covering 86% of the variance in G3. This is relatively good. Our p-value indicates a significant model, lets check for MSE.
-
-```{r}
-predicted_MLR <- predict(MLR, newdata = portuguese.data)
-
-mean((predicted_MLR - portuguese.data$G3)^2)
-min(portuguese.data$G3)
-max(portuguese.data$G3)
-```
-
-The MSE for this model was \~1.52, which decently accurate. Within range of knowing the difference of a students passing or failing a class. If a student wanted strategic accuracy, a 1.5 difference in score prediction is reliable.
-
-## New Modeling Attempt
-
-####ATTEMPT 2######
-
-\
-(Using just the Binary Outcome and we will replicate Input C where we keep G1 and G2)
-
-Run the following before modeling and use Portuguese.data to ensure all variables are there and read as the correct class (potentially delete pass/fail or five/level if we commit to using not those)
-
-PSA: Do not do any testing data matricies or calculations yet, wait until all models are complete before using the testing data at the end.
+## Modeling Set Up - Creating Five Level, and Pass/Fail
 
 ```{r}
 portuguese |> 
@@ -417,32 +378,60 @@ holdout.data <- portuguese2[-Z, ]
 
 ```
 
-Also note we will use cross validation (as requested in the doc) and 20% testing 80% training data.
+Note: we will use cross validation (as requested in the doc) and 20% testing 80% training data.
 
-Re-do the below LR using PCA
-
-## Logistic Regression (LR) with PCA - Binary Outcome- CHANGE
+## Logistic Regression (LR) with PCA - Binary Outcome
 
 Below is our model, followed by assumptions to assure reliability.
 
 ```{r}
 # remember we are removing G3 and five_level since those are for other outcomes
-
-# changing pass to 1 and fail to 0
 library(dplyr)
-
-
-LR <- glm(pass_fail ~ . -five_level -G3, data = portuguese_pass_fail, 
+lrpca <- glm(pass_fail ~ . -five_level -G3 -G2 -G1, data = portuguese.data, 
           family = binomial) 
 ```
 
-Lets check and see how it is performing:
+Lets check and see how it is performing pre-PCA:
 
 ```{r}
-summary(LR)
+summary(lrpca)
 ```
 
-Our model is showing an residual deviance of 132.68, so our model is covering a large portion of the variance in pass_fail. This is good. Our AIC indicates a good fit.
+Our model is showing an residual deviance of 305.82, so our model is so and so on the portion of the variance in pass_fail. This was expected when removing G2 and G1.
+
+Now lets utilize PCA's to create a more tuned model:
+
+```{r}
+portuguese_X <- model.matrix(lrpca)[, -1]
+pca <- prcomp(portuguese_X)
+summary(pca)
+```
+
+I want to look at both scaled and unscaled data to see if unscaled fits better (likely, given our differing ranges in scaled data)
+
+```{r}
+portuguese_pcs <- prcomp(portuguese_X, scale=TRUE)
+
+par(mfrow=c(1, 2))
+plot(pca, main="PCs of Unscaled Data")
+screeplot(portuguese_pcs, main="PCs of Scaled Data")
+```
+
+Very clearly were one variable carrying the most weight, so scaling is better here. We will now view the variance of our pca's to decide how many to include in our model:
+
+```{r}
+library(pls)
+portuguese.data_01 <- portuguese.data |>
+  mutate(pass_fail = ifelse(pass_fail == "Pass", 1, 0))
+
+portguese_pcr <- pcr(pass_fail ~ . -five_level -G3 -G2 -G1, 
+                     data = portuguese.data_01, family = binomial, 
+                     scale = TRUE, validation = "CV")
+
+summary(portguese_pcr)
+```
+
+**STILL WORKING**
 
 ### Model 2: Step-wise AIC
 
@@ -505,37 +494,9 @@ plot(RF6)
 
 more models if time
 
-### Model 5: 
-
-## Previous Failed Attempt (remove later):
-
-Recall we are only creating models to predict outcomes of portuguese and will not use G1 or G2 as predictors due to the clear prediction power of the variable and the colinearity. We will also be replicating the paper by using 20 runs of 10-fold cross-validation.
-
-```{r}
-#library(rminer)
-#portuguese2$pass_fail<-as.factor(portuguese2$pass_fail)
-
-#K<-c("kfold", 10)
-#DT<-mining(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="dt", Runs=20, method=K)
-#print(mean(DT$error))
-#savemining(DT,"DT-results")
-
-```
-
-This below was just trying to make more of them categorical, it doesn't seem to make a good difference in the outcome though so probably delete later.
-
-```{r}
-#portuguese3 <- portuguese2 %>%
-#  mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex, freetime, goout, Walc, Dalc, health), as.factor))
-```
-
-```{r}
-#rpart(pass_fail~.-G1-G2-G3-five_level , data=portuguese2, model="rpart")
-```
-
 ## Using Testing data on models
 
-DT\
+#### Decision Tree Model - Binary Setup C
 
 ```{r}
 pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
@@ -554,4 +515,4 @@ mis.class2
 
 Our initial tree model had a misclassification rate of around 13.08% on our testing data. We will tune it to see if that can be improved. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now. Note that reason is a categorical variable with 4 options, course and other being two of the options.
 
-RF:
+#### Random Forest Model - Binary Setup C
