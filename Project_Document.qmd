@@ -479,7 +479,20 @@ classification <- ifelse(predictions > 0.5, 1, 0)
 mean(classification == portuguese.data_01$pass_fail)
 ```
 
-It predicted 84.97% of the training data correctly, which is also relatively good. There are 9 nonzero predictors.
+It predicted 84.97% of the training data correctly, which is also relatively good. There are 9 nonzero predictors. For caution, we will produce a model that displays error changes across differing lambda values:
+
+```{r}
+plot(portuguese_lasso)
+abline(v = log(portuguese_lasso$lambda.min), lty = 2)
+abline(v = log(portuguese_lasso$lambda.1se), lty = 2)
+legend("topright", legend = c("lambda.min", "lambda.1se"))
+```
+
+Our model is displaying that 9 variables was a good fit. Visualization of our predictors as they are shrunk:
+
+```{r}
+plot(portuguese_lasso$glmnet.fit, xvar = "lambda", label = TRUE)
+```
 
 ### Model 3: Decision Tree
 
@@ -539,7 +552,7 @@ Our error is pretty high, given such, we will tune our tree further, such as usi
 
 ```{r}
 set.seed(627)
-randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=21, importance=TRUE)->RF21
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=21, importance=TRUE, ntree = )->RF21
 
 randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=9, importance=TRUE)->RF9
 
@@ -547,35 +560,35 @@ RF21
 RF9
 ```
 
-Once again, 21 seems to be displaying better output. Our error rate is 16.76%, but we have a relatively better prediction ability for failing students, 10% improvement.
+Our error rate is 16.76%, but we have a relatively better prediction ability for failing students, 10% improvement. We will keep the model with the smaller OOB error rate.
 
 ### Model 5: Support Vector Machine
 
 ```{r}
 library(e1071)
-#svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data)
-#summary(svm.lin)
-#svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data)
-#summary(svm.pol)
-#svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data)
-#summary(svm.rad)
-#svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data)
-#summary(svm.sig)
+svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data)
+summary(svm.lin)
+svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data)
+summary(svm.pol)
+svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data)
+summary(svm.rad)
+svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data)
+summary(svm.sig)
 
 ```
 
 ```{r}
-#set.seed(627)
-#svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
-#svm.tuning1
-#svm.tuning1$best.parameters
+set.seed(627)
+svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning1
+svm.tuning1$best.parameters
 
 ```
 
 ```{r}
-#svm.tuning1$best.parameters
-#best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
-#best.svm
+svm.tuning1$best.parameters
+best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
+best.svm
 ```
 
 ## Using Testing data on models
