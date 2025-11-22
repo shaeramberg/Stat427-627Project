@@ -535,6 +535,20 @@ Failure seems to be very important in improving the accuracy, followed by school
 plot(RF6)
 ```
 
+Our error is pretty high, given such, we will tune our tree further, such as using predictor amounts used in previous models, like 21 and 9:
+
+```{r}
+set.seed(627)
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=21, importance=TRUE)->RF21
+
+randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=9, importance=TRUE)->RF9
+
+RF21
+RF9
+```
+
+Once again, 21 seems to be displaying better output. Our error rate is 16.76%, but we have a relatively better prediction ability for failing students, 10% improvement.
+
 ### Model 5: Support Vector Machine
 
 ```{r}
@@ -630,7 +644,7 @@ Our initial tree model had a misclassification rate of around 13.08% on our test
 #### Random Forest Model - Binary Setup C
 
 ```{r}
-svm.tuning1$best.performance
+#svm.tuning1$best.performance
 ```
 
 #### Support Vector Machine Model - Binary Setup C
