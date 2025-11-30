@@ -122,7 +122,7 @@ math[3, ]
 
 ### Classes & Values
 
-Given the review of our variables and their values, we should expect (was gonna explain what classes i expect them to be and also suggest changing the G1-G3 to numeric values so we can use them unleveled)
+Given the review of our variables and their values, we should expect many integer columns and character columns, which we will change to factors.
 
 ```{r}
 str(math)
@@ -173,6 +173,7 @@ portuguese |>
 math2$five_level<-factor(math2$five_level)
 portuguese2$five_level<-factor(portuguese2$five_level)
 
+#Below we change characters to factors in the dataset we plan on using for our models
 portuguese2 <- portuguese2 %>%
   mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
 ```
@@ -223,9 +224,9 @@ ggplot(data=math2, aes(x=G3))+
 ### Correlations & Plots
 
 ```{r}
-ggplot(data=math2, aes(x=G3, y=G2))+
+ggplot(data=portuguese2, aes(x=G3, y=G2))+
   geom_point()+
-  labs(title="Math final scores with G2 scores")
+  labs(title="Portuguese final scores with G2 scores")
 ```
 
 Clear correlation between second period grades and final grade, shows the in-balance of models that use G2 as a predictor vs those that don't. We will dive into collinearity assumptions with tests in the statistical analysis section.
@@ -326,9 +327,9 @@ According to the paper that we are replicating, their goal was to "give a simple
 
 In order to differentiate our model from theirs while still replicating part of the study, we wish to take the approach that the model is used prior to a students choice to enroll in a class. Essentially, our model see's to predict a students outcome in the class using variables that are known prior and during class enrollment so that a user could predict their grade before the third trimester.
 
-We understand the choice of the authors to use an A-B-C subset method, however, given time constraint, we decided to solely select subset (A). Inclusion of G1 and G2 would indicate a model that can predict a students grade for trimester 3 while considering trimester 1 and 2.
+We understand the choice of the authors to use an A-B-C subset method, however, given time constraint, we decided to solely select subset (C). Not including G1 or G2 would indicate a model that can predict a students grade for trimester 3 wihtout considering trimester 1 and 2.
 
-We will prioritize replicating two of their original models - Decision Tree (DT) and Random Forest (RF). However, we plan to add three of our models: Partial Least Squares (PLS), LASSO Regression (LR), and Linear Discriminant Analysis (LDA). PLS and LR will use continuous 1-20 outcomes while our LDA would utilize the binary (pass/fail) outcome. We will also add a simple Multiple Linear Regression (MLR) as a baseline model. All of such will be used to predict outcomes for the Portuguese course (which has more observations, 649 v. 395) for time constraint, and only reproduce models with input A, as we want to view prediction power with the utilization of G1 and G2 grades.
+We will prioritize replicating two of their original models - Decision Tree (DT) and Random Forest (RF). However, we plan to add three of our models: Support Vector Machine, LASSO Regression (LR), and Logistic Regression with PCA. We will utilize the binary (pass/fail) outcome on all models. We will predict outcomes for the Portuguese course (which has more observations, 649 v. 395) due to the time constraint, and only reproduce models with input C, as we want to view prediction power without the utilization of G1 and G2 grades.
 
 Note on data splitting:
 
@@ -336,13 +337,9 @@ The paper states: "To access the predictive performances, 20 runs of a 10- fold 
 
 We will do an initial 20-80 split and run cross-validation on most of our models.
 
-In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we intend to replicate Decision Tree and Random Forest from the original paper but replace the other models with... change
-
-Partial Least Squares, Lasso and LDA, and examine solely the Portuguese course data for time constraint reasons.
+In summary, we intend to replicate this study, with key differences: we intend to use solely setup (C), we intend to replicate Decision Tree and Random Forest from the original paper but create three models of our own. We will use a binary response variable of pass/fail.
 
 # Part 2: Model Fitting - Binary; Set Up C
-
-If time allocates, we still intend to work towards replicating the models with five-level as well.
 
 ## Modeling Set Up - Creating Five Level, and Pass/Fail
 
@@ -365,10 +362,7 @@ portuguese2$five_level<-factor(portuguese2$five_level)
 portuguese2 <- portuguese2 %>%
   mutate(across(c(pass_fail, romantic, internet, higher, nursery, activities, paid, famsup, schoolsup, guardian, reason, Fjob, Mjob, school, address, famsize, Pstatus, sex), as.factor))
 
-#portuguese2 <- portuguese2 |>
-#  mutate(pass_fail = ifelse(pass_fail == "Pass", 1, 0))
-#Commented out code that changed pass fail to 0 1 because our models need to read the response as classification (because they are classification models)
-
+#create training and testing data
 set.seed(627)
 train.pct <- 0.8
 Z <- sample(nrow(portuguese2), floor(train.pct*nrow(portuguese2)))
@@ -378,7 +372,7 @@ holdout.data <- portuguese2[-Z, ]
 
 ```
 
-Note: we will use cross validation (as requested in the doc) and 20% testing 80% training data.
+Note: we will use cross validation (as requested in the project instructions) and 20% testing 80% training data.
 
 ### Model 1: Logistic Regression with PCA - Binary Outcome
 
@@ -503,6 +497,13 @@ tree_initial<-tree(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data)
 summary(tree_initial) 
 ```
 
+```{r}
+plot(tree_initial)
+text(tree_initial, pretty=0)
+```
+
+The initial tree is very busy and could possibly overfit our data, so we will now tune the tree.
+
 Tuning tree:
 
 ```{r}
@@ -548,7 +549,7 @@ Failure seems to be very important in improving the accuracy, followed by school
 plot(RF6)
 ```
 
-Our error is pretty high, given such, we will tune our tree further, such as using predictor amounts used in previous models, like 21 and 9:
+We were curious if changing the number of predictors considered at each branch to be the predictor amounts favored in previous models, like 21 and 9, would give better results:
 
 ```{r}
 set.seed(627)
@@ -579,15 +580,47 @@ summary(svm.sig)
 
 ```{r}
 set.seed(627)
-svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
+
+svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 0.001, kernel = c("linear", "polynomial", "radial", "sigmoid")))
 svm.tuning1
-svm.tuning1$best.parameters
+
+svm.tuning2 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 0.01, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning2
+
+svm.tuning3 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 0.1, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning3
+
+svm.tuning4 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 1, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning4
+
+svm.tuning5 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 10, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning5
+
+svm.tuning6 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 100, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning6
+
+svm.tuning7 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 1000, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning7
+
+#Below is the previous tuning method
+#svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
+#svm.tuning1
+#svm.tuning1$best.parameters
 
 ```
 
+The cost of 1000 takes more computing time so it is run in a separate code chunk.
+
 ```{r}
-svm.tuning1$best.parameters
-best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
+
+svm.tuning7 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 1000, kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning7
+svm.tuning7$best.parameters
+```
+
+```{r}
+svm.tuning5$best.parameters
+best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=10, kernel="radial")
 best.svm
 ```
 
@@ -638,35 +671,51 @@ The testing data was better predicted then the training data, in comparison to 8
 #### Decision Tree Model - Binary Setup C
 
 ```{r}
-#pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
-#table(pred_val, holdout.data$pass_fail)
-#mis.class<-mean(pred_val != holdout.data$pass_fail)
-#mis.class
+pred_val<-predict(tree_initial, newdata=holdout.data, type="class")
+table(pred_val, holdout.data$pass_fail)
+mis.class<-mean(pred_val != holdout.data$pass_fail)
+mis.class
 
 ```
 
 ```{r}
-#pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
-#table(pred_val2, holdout.data$pass_fail)
-#mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
-#mis.class2
+pred_val2<-predict(tuned_tree, newdata=holdout.data, type="class")
+table(pred_val2, holdout.data$pass_fail)
+mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
+mis.class2
 ```
 
 Our initial tree model had a misclassification rate of around 13.08% on our testing data. We will tune it to see if that can be improved. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now. Note that reason is a categorical variable with 4 options, course and other being two of the options.
 
 #### Random Forest Model - Binary Setup C
 
+Testing data on tuned model:
+
 ```{r}
-#svm.tuning1$best.performance
+rf.pred<-predict(RF6, newdata=holdout.data, type="class")
+table(rf.pred, holdout.data$pass_fail)
+mis.class3<-mean(rf.pred != holdout.data$pass_fail)
+mis.class3
+```
+
+Testing data on a non-optimal RF model: \
+
+```{r}
+rf.pred2<-predict(RF5, newdata=holdout.data, type="class")
+table(rf.pred2, holdout.data$pass_fail)
+mis.class4<-mean(rf.pred2 != holdout.data$pass_fail)
+mis.class4
 ```
 
 #### Support Vector Machine Model - Binary Setup C
 
 ```{r}
-#svm.pred <- predict(best.svm, newdata=holdout.data)
-#err.tab <- c(mean(holdout.data$pass_fail != svm.pred), svm.tuning$best.performance)
-#err.tab
+svm.pred <- predict(best.svm, newdata=holdout.data)
+err.tab <- c(mean(holdout.data$pass_fail != svm.pred), svm.tuning6$best.performance)
+err.tab
 ```
+
+Change the below? Where did it come from?
 
 Misclassification rate on new data: 13.08%
 
