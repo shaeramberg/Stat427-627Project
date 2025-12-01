@@ -502,7 +502,7 @@ plot(tree_initial)
 text(tree_initial, pretty=0)
 ```
 
-The initial tree is very busy and could possibly overfit our data, so we will now tune the tree.
+The initial tree uses 15 variables, has 22 terminal nodes, and is very busy; the model could possibly overfit our data, so we will now tune the tree.
 
 Tuning tree:
 
@@ -517,6 +517,8 @@ text(tuned_tree, pretty=0)
 
 
 ```
+
+The tuned model is best with 3 terminal nodes. It only uses two variables: failures and reason. Note that reason is a categorical variable with 4 options, course and other being two of the options.
 
 #### Model 4: Random Forest
 
@@ -534,7 +536,7 @@ randomForest(pass_fail ~ . -G3-five_level-G2-G1, data=portuguese.data, mtry=7, i
 RF7
 ```
 
-Looking at the OOB estimate of error rate, and keeping in mind the ideal of m = sqrt(p), we tried making m 4, 5, 6, and 7 (we have 30 predictors in the model). The model with m=8 produces the smallest OOB error rate of 15.41.
+Looking at the OOB estimate of error rate, and keeping in mind the ideal of m = sqrt(p), we tried making m 4, 5, 6, and 7 (we have 30 predictors in the model). The model with m=6 produces the smallest OOB error rate of 15.41.
 
 looking at RF variable importance:
 
@@ -549,7 +551,9 @@ Failure seems to be very important in improving the accuracy, followed by school
 plot(RF6)
 ```
 
-We were curious if changing the number of predictors considered at each branch to be the predictor amounts favored in previous models, like 21 and 9, would give better results:
+The above graph shows the overall error rate of the model (black line) and the false positives (green line) and false negatives (red line). After around 200 trees the error rate roughly stays the same, so we wouldn't need to do 500 iterations of trees if we wanted to save computing power.
+
+We were alsp curious if changing the number of predictors considered at each branch to be the predictor amounts favored in previous models, like 21 and 9, would give better results:
 
 ```{r}
 set.seed(627)
@@ -561,67 +565,71 @@ RF21
 RF9
 ```
 
-Our error rate is 16.76%, but we have a relatively better prediction ability for failing students, 10% improvement. We will keep the model with the smaller OOB error rate.
+Our error rate is 16.76%, but we have a relatively better prediction ability for failing students, 10% improvement. We will keep the model with the smaller OOB error rate, which is mtry=6.
 
 ### Model 5: Support Vector Machine
 
 ```{r}
 library(e1071)
-svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data)
-summary(svm.lin)
-svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data)
-summary(svm.pol)
-svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data)
-summary(svm.rad)
-svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data)
-summary(svm.sig)
+set.seed(627)
+#Linear kernel
+svm.lin<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="linear", data=portuguese.data, cross=10)
+svm.lin$tot.accuracy
+
+#Polynomial Kernel
+svm.pol<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="polynomial", data=portuguese.data, cross=10)
+svm.pol$tot.accuracy
+#Radial kernel
+svm.rad<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="radial", data=portuguese.data, cross=10)
+svm.rad$tot.accuracy
+#Sigmoid kernel
+svm.sig<-svm(pass_fail ~ . -G3-five_level-G2-G1, kernel="sigmoid", data=portuguese.data, cross=10)
+svm.sig$tot.accuracy
 
 ```
+
+I used 10-fold cross validation to create 4 initial SVM models with each kernel and a default cost of 1. They all had similar predication accuracy with the best being a linear kernel at around 84.39% accuracy.
+
+Now I willl use tune() to find the best kernel for each cost, and then pick the best model based on the smallest CV prediction error.
 
 ```{r}
 set.seed(627)
-
-svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 0.001, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning1
-
-svm.tuning2 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 0.01, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning2
-
-svm.tuning3 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 0.1, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning3
-
-svm.tuning4 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 1, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning4
-
-svm.tuning5 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 10, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning5
-
-svm.tuning6 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 100, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning6
-
-svm.tuning7 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 1000, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning7
-
-#Below is the previous tuning method
-#svm.tuning1 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.001, 0.01, 0.1, 1, 10, 100, 1000), kernel = c("linear", "polynomial", "radial", "sigmoid")))
-#svm.tuning1
-#svm.tuning1$best.parameters
-
+svm.tuning <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = c(0.01, 0.1, 1, 10, 100), kernel = c("linear", "polynomial", "radial", "sigmoid")))
+svm.tuning
+svm.tuning$best.parameters
+svm.tuning$best.model
 ```
 
-The cost of 1000 takes more computing time so it is run in a separate code chunk.
+The best model has a cost of 100, uses the linear kernel, and has a CV prediction error of 13.50%.
+
+Next I will look at the best model in all of the cost levels:
+
+```{r}
+library(dplyr)
+set.seed(627)
+result.df<-svm.tuning$performances
+
+try<-result.df |> 
+  arrange(cost) |> 
+  select(cost, kernel, error)
+try
+```
+
+The best kernel for cost 100 is linear with an error of 13.50%.
+
+The best kernel for cost 10 is linearwith an error of 13.69%.
+
+The best kernel for cost 1 is linear with an error of 14.27%.
+
+The best kernel for cost 0.1 is linear with an error of 15.03%.
+
+The best kernel for cost 0.01 is tied with an error of 16.20%.
 
 ```{r}
 
-svm.tuning7 <- tune(svm, pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, ranges = list(cost = 1000, kernel = c("linear", "polynomial", "radial", "sigmoid")))
-svm.tuning7
-svm.tuning7$best.parameters
-```
-
-```{r}
-svm.tuning5$best.parameters
-best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=10, kernel="radial")
+best.svm<-svm(pass_fail ~ . -G3-five_level-G2-G1, data = portuguese.data, cost=100, kernel="linear")
 best.svm
+
 ```
 
 ## Using Testing data on models
@@ -685,7 +693,7 @@ mis.class2<-mean(pred_val2 != holdout.data$pass_fail)
 mis.class2
 ```
 
-Our initial tree model had a misclassification rate of around 13.08% on our testing data. We will tune it to see if that can be improved. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now. Note that reason is a categorical variable with 4 options, course and other being two of the options.
+Our initial tree model had a misclassification rate of around 13.08% on our testing data. Tuning the tree with cross validation brings our misclassification rate down to 11.54% which is better, but the model is more inflexible now.
 
 #### Random Forest Model - Binary Setup C
 
@@ -698,7 +706,9 @@ mis.class3<-mean(rf.pred != holdout.data$pass_fail)
 mis.class3
 ```
 
-Testing data on a non-optimal RF model: \
+On our tuned model we get a misclassification rate of 12.3%.
+
+Testing data on a non-optimal RF model:\
 
 ```{r}
 rf.pred2<-predict(RF5, newdata=holdout.data, type="class")
@@ -707,16 +717,22 @@ mis.class4<-mean(rf.pred2 != holdout.data$pass_fail)
 mis.class4
 ```
 
+The model where mtry=5 had a higher OOB error rate on the training data, but produces a slightly smaller msiclassification rate of 11.53% compared to our choosen RF model. These are similar misclassification rates and likely wouldn't create a big difference when tested on more data.
+
 #### Support Vector Machine Model - Binary Setup C
 
 ```{r}
 svm.pred <- predict(best.svm, newdata=holdout.data)
-err.tab <- c(mean(holdout.data$pass_fail != svm.pred), svm.tuning6$best.performance)
+err.tab <- mean(holdout.data$pass_fail != svm.pred)
 err.tab
 ```
 
-Change the below? Where did it come from?
-
 Misclassification rate on new data: 13.08%
 
-Misclassification based on CV for the training data: 13.50%
+```{r}
+svm.pred2 <- predict(svm.sig, newdata=holdout.data)
+err.tab2 <- mean(holdout.data$pass_fail != svm.pred2)
+err.tab2
+```
+
+Misclassification rate for an untuned sigmoid model is lower than the tuned linear model, at 12.31%.
